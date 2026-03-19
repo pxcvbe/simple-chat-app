@@ -6,6 +6,8 @@ Real-time chat app berbasis WebSocket. Tanpa database, tanpa auth-login. Masuk l
 ![Express.js](https://img.shields.io/badge/Express.js-000000?logo=express&logoColor=fff&style=flat)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
+<img width="1920" height="957" alt="image" src="https://github.com/user-attachments/assets/dea69b07-fcd1-4e5e-8192-0505d8d8f57f" />
+
 ---
 
 ## • Fitur •
