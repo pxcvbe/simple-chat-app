@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>P-Chat - Live Chat</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+ 
+        :root {
+        --bg: #0a0a0f;
+        --surface: #13131a;
+        --surface2: #1c1c27;
+        --border: #2a2a3d;
+        --accent: #7c3aed;
+        --accent2: #a78bfa;
+        --accent-glow: rgba(124, 58, 237, 0.25);
+        --text: #e2e2f0;
+        --text-muted: #6b6b8a;
+        --system-color: #4a4a6a;
+        --radius: 14px;
+        --radius-sm: 8px;
+        --safe-bottom: env(safe-area-inset-bottom, 0px);
+        --safe-top: env(safe-area-inset-top, 0px);
+        }
+    
+        html {
+        height: 100%;
+        overflow: hidden;
+        position: fixed;
+        width: 100%;
+        }
+    
+        body {
+        height: 100%;
+        height: 100dvh;
+        font-family: 'DM Mono', monospace;
+        background: var(--bg);
+        color: var(--text);
+        overflow: hidden;
+        position: relative;
+        }
+    
+        /* JOIN OVERLAY */
+        #overlay {
+        position: fixed; inset: 0; z-index: 200;
+        background: var(--bg);
+        display: flex; align-items: center; justify-content: center;
+        padding: 20px;
+        padding-top: calc(20px + var(--safe-top));
+        padding-bottom: calc(20px + var(--safe-bottom));
+        animation: fadein 0.4s ease;
+        }
+    
+        .join-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        padding: clamp(28px, 6vw, 48px) clamp(24px, 6vw, 44px);
+        width: 100%; max-width: 400px;
+        box-shadow: 0 0 80px var(--accent-glow);
+        display: flex; flex-direction: column; gap: 20px;
+        }
+    
+        .join-card .logo {
+        font-family: 'Syne', sans-serif;
+        font-weight: 800;
+        font-size: clamp(1.8rem, 6vw, 2.4rem);
+        color: #fff;
+        letter-spacing: -1px;
+        }
+        .join-card .logo span { color: var(--accent2); }
+    
+        .join-card p {
+        color: var(--text-muted);
+        font-size: 0.8rem;
+        line-height: 1.6;
+        }
+    
+        .join-card input {
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 14px 16px;
+        color: var(--text);
+        font-family: 'DM Mono', monospace;
+        font-size: 16px;
+        outline: none;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        width: 100%;
+        -webkit-appearance: none;
+        }
+        .join-card input::placeholder { color: var(--text-muted); }
+        .join-card input:focus {
+        border-color: var(--accent2);
+        box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+    
+        .join-btn {
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        border-radius: var(--radius-sm);
+        padding: 15px;
+        font-family: 'Syne', sans-serif;
+        font-size: 0.95rem;
+        font-weight: 700;
+        cursor: pointer;
+        letter-spacing: 0.5px;
+        transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+        }
+        .join-btn:hover { background: #6d28d9; box-shadow: 0 0 20px var(--accent-glow); }
+        .join-btn:active { transform: scale(0.98); }
+    
+        /* MAIN APP */
+        #app {
+        display: none;
+        position: fixed;
+        inset: 0;
+        flex-direction: column;
+        }
+        #app.visible {
+        display: flex;
+        animation: fadein 0.35s ease;
+        }
+    
+        /* HEADER */
+        header {
+        flex-shrink: 0;
+        border-bottom: 1px solid var(--border);
+        display: flex; align-items: center; gap: 10px;
+        padding: 0 16px;
+        padding-top: var(--safe-top);
+        height: calc(56px + var(--safe-top));
+        background: var(--surface);
+        z-index: 10;
+        }
+    
+        #menu-btn {
+        display: none;
+        width: 36px; height: 36px;
+        background: none; border: none;
+        color: var(--text); cursor: pointer;
+        align-items: center; justify-content: center;
+        border-radius: 8px; flex-shrink: 0;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+        }
+        #menu-btn svg { width: 20px; height: 20px; }
+        #menu-btn:active { background: var(--surface2); }
+    
+        .status-dot {
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        background: #22c55e;
+        box-shadow: 0 0 8px #22c55e;
+        animation: pulse 2s infinite;
+        flex-shrink: 0;
+        }
+    
+        .header-title {
+        font-family: 'Syne', sans-serif;
+        font-weight: 700;
+        font-size: 0.95rem;
+        color: var(--text);
+        white-space: nowrap;
+        }
+    
+        #typing-indicator {
+        font-size: 0.7rem;
+        color: var(--accent2);
+        margin-left: auto;
+        opacity: 0;
+        transition: opacity 0.3s;
+        font-style: italic;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 150px;
+        }
+        #typing-indicator.active { opacity: 1; }
+    
+        #header-sub {
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        white-space: nowrap;
+        flex-shrink: 0;
+        }
+    
+        /* APP BODY */
+        .app-body {
+        flex: 1;
+        display: flex;
+        overflow: hidden;
+        position: relative;
+        }
+    
+        /* SIDEBAR */
+        aside {
+        width: 220px;
+        flex-shrink: 0;
+        background: var(--surface);
+        border-right: 1px solid var(--border);
+        display: flex; flex-direction: column;
+        overflow: hidden;
+        transition: transform 0.28s cubic-bezier(.4,0,.2,1);
+        }
+    
+        .sidebar-header {
+        padding: 16px 20px 12px;
+        font-family: 'Syne', sans-serif;
+        font-weight: 800;
+        font-size: 1.2rem;
+        letter-spacing: -0.5px;
+        border-bottom: 1px solid var(--border);
+        color: #fff;
+        display: flex; align-items: center; justify-content: space-between;
+        }
+        .sidebar-header .brand span { color: var(--accent2); }
+    
+        #sidebar-close {
+        display: none;
+        background: none; border: none;
+        color: var(--text-muted); cursor: pointer;
+        width: 28px; height: 28px;
+        align-items: center; justify-content: center;
+        border-radius: 6px;
+        -webkit-tap-highlight-color: transparent;
+        }
+        #sidebar-close:active { background: var(--surface2); }
+        #sidebar-close svg { width: 16px; height: 16px; }
+    
+        .sidebar-label {
+        padding: 12px 20px 4px;
+        font-size: 0.62rem;
+        color: var(--text-muted);
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        }
+    
+        #user-list {
+        flex: 1;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 4px 12px 12px;
+        display: flex; flex-direction: column; gap: 2px;
+        }
+        #user-list::-webkit-scrollbar { width: 3px; }
+        #user-list::-webkit-scrollbar-thumb { background: var(--border); }
+    
+        .user-item {
+        display: flex; align-items: center; gap: 10px;
+        padding: 8px 10px;
+        border-radius: var(--radius-sm);
+        font-size: 0.82rem;
+        animation: slidein 0.25s ease;
+        }
+        .user-item:active { background: var(--surface2); }
+    
+        .user-avatar {
+        width: 28px; height: 28px;
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.65rem;
+        font-weight: 700;
+        font-family: 'Syne', sans-serif;
+        flex-shrink: 0;
+        }
+    
+        .user-name {
+        color: var(--text);
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        flex: 1; min-width: 0;
+        }
+    
+        .you-badge {
+        flex-shrink: 0;
+        font-size: 0.6rem;
+        background: var(--accent-glow);
+        color: var(--accent2);
+        border: 1px solid var(--accent);
+        border-radius: 4px;
+        padding: 1px 5px;
+        letter-spacing: 0.5px;
+        }
+    
+        /* MOBILE SIDEBAR OVERLAY */
+        #sidebar-overlay {
+        display: none;
+        position: absolute;
+        inset: 0;
+        background: rgba(0,0,0,0.6);
+        z-index: 50;
+        backdrop-filter: blur(2px);
+        -webkit-backdrop-filter: blur(2px);
+        }
+        #sidebar-overlay.active { display: block; animation: fadein 0.25s ease; }
+    
+        /* MESSAGES */
+        #messages {
+        flex: 1;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 16px;
+        display: flex; flex-direction: column; gap: 4px;
+        background: var(--bg);
+        overscroll-behavior: contain;
+        }
+        #messages::-webkit-scrollbar { width: 4px; }
+        #messages::-webkit-scrollbar-track { background: transparent; }
+        #messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    
+        .msg-group {
+        display: flex; flex-direction: column; gap: 2px;
+        animation: msgslide 0.2s ease;
+        }
+    
+        .msg-meta {
+        display: flex; align-items: baseline; gap: 8px;
+        padding: 10px 0 2px;
+        }
+    
+        .msg-author {
+        font-family: 'Syne', sans-serif;
+        font-size: 0.8rem;
+        font-weight: 700;
+        }
+    
+        .msg-time {
+        font-size: 0.66rem;
+        color: var(--text-muted);
+        }
+    
+        .msg-bubble {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 4px 14px 14px 14px;
+        padding: 10px 14px;
+        font-size: 0.85rem;
+        line-height: 1.55;
+        color: var(--text);
+        max-width: min(520px, 85vw);
+        word-break: break-word;
+        }
+    
+        .msg-bubble.own {
+        background: var(--surface2);
+        border-color: var(--accent);
+        border-radius: 14px 4px 14px 14px;
+        border-left: 2px solid var(--accent);
+        }
+    
+        .msg-group.own { align-items: flex-end; }
+        .msg-group.own .msg-meta { flex-direction: row-reverse; }
+        .msg-group.own .msg-author { text-align: right; }
+    
+        .system-msg {
+        text-align: center;
+        font-size: 0.7rem;
+        color: var(--system-color);
+        padding: 8px 0;
+        display: flex; align-items: center; gap: 10px;
+        }
+        .system-msg::before, .system-msg::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: var(--border);
+        }
+    
+        /* INPUT AREA */
+        #input-area {
+        flex-shrink: 0;
+        border-top: 1px solid var(--border);
+        background: var(--surface);
+        display: flex; align-items: flex-end; gap: 10px;
+        padding: 12px 16px;
+        padding-bottom: calc(12px + var(--safe-bottom));
+        }
+    
+        #msg-input {
+        flex: 1;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 10px 14px;
+        color: var(--text);
+        font-family: 'DM Mono', monospace;
+        font-size: 16px;
+        outline: none;
+        resize: none;
+        line-height: 1.45;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        max-height: 120px;
+        -webkit-appearance: none;
+        }
+        #msg-input::placeholder { color: var(--text-muted); }
+        #msg-input:focus {
+        border-color: var(--accent2);
+        box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+    
+        #send-btn {
+        width: 44px; height: 44px;
+        flex-shrink: 0;
+        background: var(--accent);
+        border: none;
+        border-radius: var(--radius-sm);
+        color: #fff;
+        cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+        }
+        #send-btn:hover { background: #6d28d9; box-shadow: 0 0 16px var(--accent-glow); }
+        #send-btn:active { transform: scale(0.93); background: #6d28d9; }
+        #send-btn svg { width: 18px; height: 18px; }
+    
+        /* MOBILE */
+        @media (max-width: 640px) {
+        #menu-btn { display: flex; }
+        #sidebar-close { display: flex; }
+    
+        aside {
+            position: absolute;
+            top: 0; left: 0; bottom: 0;
+            z-index: 60;
+            transform: translateX(-100%);
+            width: 260px;
+            box-shadow: 4px 0 24px rgba(0,0,0,0.4);
+        }
+        aside.open { transform: translateX(0); }
+    
+        #typing-indicator { max-width: 100px; }
+        #messages { padding: 12px; }
+        }
+    
+        /* ANIMATIONS */
+        @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slidein { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes msgslide { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse {
+        0%, 100% { box-shadow: 0 0 8px #22c55e; }
+        50% { box-shadow: 0 0 16px #22c55e, 0 0 4px #22c55e; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- JOIN OVERLAY -->
+    <div id="overlay">
+        <div class="join-card">
+            <div class="logo">
+                P-Chat
+                <span>.</span>
+            </div>
+            <p>
+                Real-time chat - no signup, no fuss. 
+                <br>
+                Enter a name and start talking.
+            </p>
+            <input type="text" id="username-input" placeholder="Your display name..." maxlength="20" autocomplete="off"
+                   autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="text" enterkeyhint="go">
+            <button class="join-btn" id="join-btn">Join Room →</button>
+        </div>
+    </div>
+
+    <!-- MAIN APP -->
+     <div id="app">
+        <header>
+            <button id="menu-btn" title="Online users" aria-label="Show users">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+                </svg>
+            </button>
+            <div class="status-dot"></div>
+            <div class="header-title"># General</div>
+            <div id="typing-indicator"></div>
+            <div class="header-sub" id="header-sub">0 online</div>
+        </header>
+
+        <div class="app-body">
+            <div id="sidebar-overlay"></div>
+            <aside id="sidebar">
+                <div class="sidebar-header">
+                    <div class="brand">P-Chat<span>.</span></div>
+                    <button id="sidebar-close" aria-label="Close">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="sidebar-label">Online - <span id="online-count">0</span></div>
+                <div id="user-list"></div>
+            </aside>
+            <div id="messages"></div>
+        </div>
+
+        <div id="input-area">
+            <textarea id="msg-input" placeholder="Type a message... (Enter to send)" rows="1"
+                      autocomplete="off" autocorrect="off" spellcheck="true" enterkeyhint="send"></textarea>
+            <button id="send-btn" title="Send">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+            </button>
+        </div>
+     </div>
+
+     <!-- HANDLE SCRIPT -->
+     <script>
+        const $ = id => document.getElementById(id);
+        let ws, myUserId, myColor;
+        let typingTimer, isTyping = false;
+        let typingUsers = new Map();
+
+        function formatTime(ts) {
+            return new Date(ts).toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" });
+        }
+
+        function initials(name) {
+            return name.slice(0, 2).toUpperCase();
+        }
+
+        // Sidebar toggle
+        const sidebar = $('sidebar');
+        const sidebarOverlay = $('sidebar-overlay');
+
+        function openSidebar() {
+            sidebar.classList.add('open');
+            sidebarOverlay.classList.add('active');
+        }
+
+        function closeSidebar() {
+            sidebar.classList.remove('open');
+            sidebarOverlay.classList.remove('active')
+        }
+
+        $('menu-btn').onclick = openSidebar;
+        $('sidebar-close').onclick = closeSidebar;
+        sidebarOverlay.onclick = closeSidebar;
+
+        // --- JOIN --- //
+        function join() {
+            const name = $('username-input').value.trim() || 'Anonymous';
+
+            const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+            ws = new WebSocket(`${proto}://${location.host}`);
+
+            ws.onopen = () => {
+                ws.send(JSON.stringify({ type: 'join', username: name }));
+            }
+
+            ws.onmessage = e => handleMessage(JSON.parse(e.data));
+
+            ws.onclose = () => {
+                appendSystem('🔄 Disconnected from server. Refresh to rejoin');
+            }
+        }
+
+        $('join-btn').onclick = () => join();
+        $('username-input').addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                join();
+            }
+        });
+
+        // --- MESSAGE HANDLER --- //
+        function handleMessage(data) {
+            switch(data.type) {
+                case 'welcome':
+                    myUserId = data.userId;
+                    myColor = data.color;
+                    $('overlay').style.display = 'none';
+                    $('app').classList.add('visible');
+                    data.history.forEach(m => {
+                        if (m.type === 'message') appendMessage(m);
+                        else if (m.type === 'system') appendSystem(m.text)
+                    });
+                    updateUserList(data.users);
+                    scrollToBottom();
+                    if (window.innerWidth > 640) $('msg-input').focus();
+                    break;
+
+                case 'message':
+                    appendMessage(data);
+                    scrollToBottom();
+                    break;
+
+                case 'system':
+                    appendSystem(data.text);
+                    scrollToBottom();
+                    break;
+
+                case 'users':
+                    updateUserList(data.users);
+                    break;
+
+                case 'typing':
+                    handleTypingIndicator(data);
+                    break;
+            }
+        }
+
+        // --- RENDER --- //
+        let lastAuthorId = null;
+
+        function appendMessage(msg) {
+            const isOwn = msg.userId === myUserId;
+            const container = $('messages');
+
+            const group = document.createElement('div');
+            group.className = `msg-group${isOwn ? ' own' : ''}`;
+
+            if (msg.userId !== lastAuthorId) {
+                const meta = document.createElement('div');
+                meta.className = 'msg-meta';
+
+                const author = document.createElement('span');
+                author.className = 'msg-author';
+                author.style.color = msg.color;
+                author.textContent = isOwn ? 'You' : msg.username;
+
+                const time = document.createElement('span');
+                time.className = 'msg-time';
+                time.textContent = formatTime(msg.timestamp);
+
+                meta.appendChild(author);
+                meta.appendChild(time);
+                group.appendChild(meta);
+            }
+
+            const bubble = document.createElement('div');
+            bubble.className = `msg-bubble${isOwn ? ' own' : ''}`;
+            bubble.textContent = msg.text;
+
+            group.appendChild(bubble);
+            container.appendChild(group);
+            lastAuthorId = msg.userId;
+        }
+
+        function appendSystem(text) {
+            const el = document.createElement('div');
+            el.className = 'system-msg';
+            el.textContent = text;
+            $('messages').appendChild(el);
+            lastAuthorId = null;
+        }
+
+        function updateUserList(users) {
+            const list = $('user-list');
+            list.innerHTML = '';
+            users.forEach(u => {
+                const item = document.createElement('div');
+                item.className = 'user-item';
+
+                const avatar = document.createElement('div');
+                avatar.className = 'user-avatar';
+                avatar.style.background = u.color + '33';
+                avatar.style.color = u.color;
+                avatar.style.border = `1px solid ${u.color}55`;
+                avatar.textContent = initials(u.username);
+
+                const name = document.createElement('span');
+                name.className = 'user-name';
+                name.textContent = u.username;
+
+                item.appendChild(avatar);
+                item.appendChild(name);
+
+                if (u.id === myUserId) {
+                    const badge = document.createElement('span');
+                    badge.className = 'you-badge';
+                    badge.textContent = 'you';
+                    item.appendChild(badge);
+                }
+
+                list.appendChild(item);
+            });
+
+            const count = users.length;
+            $('online-count').textContent = count;
+            $('header-sub').textContent = `${count} online`;
+        }
+
+        function handleTypingIndicator(data) {
+            // <TODO> lanjutkan, kalo selesai hapus
+            if (data.isTyping) {
+                typingUsers.set(data.userId, data.username);
+            } else {
+                typingUsers.delete(data.userId);
+            }
+
+            const el = $('typing-indicator');
+            if (typingUsers.size === 0) {
+                el.classList.remove('active');
+            } else {
+                const names = [...typingUsers.values()];
+                el.textContent = names.length === 1
+                    ? `${names[0]} is typing...`
+                    : `${names.slice(0, 2).join(', ')} are typing...`;
+                el.classList.add('active');
+            }
+        }
+
+        function scrollToBottom() {
+            const m = $('messages');
+            m.scrollTop = m.scrollHeight;
+        }
+
+        // --- SEND --- //
+        function sendMessage() {
+            const input = $('msg-input');
+            const text = input.value.trim();
+            if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
+            ws.send(JSON.stringify({ type: 'message', text }));
+            input.value = '';
+            input.style.height = 'auto';
+            stopTyping();
+        }
+
+        $('send-btn').onclick = sendMessage;
+
+        $('msg-input').addEventListener('keydown', e => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        $('msg-input').addEventListener('input', function() {
+            // Auto resize
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+
+            // Typing indicator
+            if (!isTyping && ws && ws.readyState === WebSocket.OPEN) {
+                isTyping = true;
+                ws.send(JSON.stringify({ type: 'typing', isTyping: true }));
+            }
+            clearTimeout(typingTimer);
+            typingTimer = setTimeout(stopTyping, 2000);
+        });
+
+        function stopTyping () {
+            if (isTyping && ws && ws.readyState === WebSocket.OPEN) {
+                isTyping = false;
+                ws.send(JSON.stringify({ type: 'typing', isTyping: false }));
+            }
+        }
+
+        // iOS keyboard: scroll to bottom when viewport resizes
+        if ('visualViewport' in window) {
+            window.visualViewport.addEventListener('resize', scrollToBottom);
+        }
+     </script>
+    
+</body>
+</html>
